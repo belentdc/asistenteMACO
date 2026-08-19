@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Asistente de MACO</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --azul: #2f5f8a;
+    --azul-oscuro: #1c3d59;
+    --azul-claro: #e8eef4;
+    --papel: #fafbfc;
+    --tinta: #21262b;
+    --tinta-suave: #5c6570;
+    --linea: #cdd6de;
+    --alerta: #a3491f;
+    --alerta-fondo: #fbeee5;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--papel);
+    color:var(--tinta);
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+    line-height:1.5;
+  }
+  .marco{ max-width:920px; margin:0 auto; padding:40px 24px 80px; }
+  .encabezado{
+    border-bottom:3px solid var(--azul-oscuro);
+    padding-bottom:20px; margin-bottom:32px;
+    display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .encabezado h1{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-weight:700; font-size:1.6rem; margin:0; color:var(--azul-oscuro);
+  }
+  .encabezado .sub{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size:0.8rem; color:var(--tinta-suave);
+    text-transform:uppercase; letter-spacing:0.08em;
+  }
+  .franja{
+    background:var(--azul); color:white;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase;
+    padding:6px 12px; display:inline-block; border-radius:2px;
+  }
+  .paso{
+    margin-bottom:28px; border:1px solid var(--linea); background:white;
+    border-radius:4px; padding:22px 24px;
+  }
+  .paso .numero{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-weight:700; font-size:0.72rem; letter-spacing:0.12em;
+    color:var(--azul); text-transform:uppercase; margin-bottom:6px;
+  }
+  .paso h2{ font-family: "Helvetica Neue", Arial, sans-serif; font-size:1.05rem; margin:0 0 6px; }
+  .paso p.ayuda{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size:0.86rem; color:var(--tinta-suave); margin:0 0 16px;
+  }
+  .zona-archivo{
+    border:2px dashed var(--linea); border-radius:4px; padding:20px; text-align:center;
+    font-family: "Helvetica Neue", Arial, sans-serif; font-size:0.88rem;
+    color:var(--tinta-suave); background:var(--azul-claro); cursor:pointer;
+  }
+  .zona-archivo:hover{ border-color:var(--azul); }
+  .zona-archivo.lista{ border-style:solid; border-color:var(--azul); color:var(--azul-oscuro); font-weight:600; }
+  input[type=file]{ display:none; }
+  .dos-columnas{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:640px){ .dos-columnas{grid-template-columns:1fr;} }
+  .etiqueta-campo{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size:0.78rem; font-weight:600; margin-bottom:8px; display:block;
+  }
+  button.principal{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    background:var(--azul-oscuro); color:white; border:none;
+    padding:14px 28px; font-size:0.95rem; font-weight:600;
+    border-radius:4px; cursor:pointer;
+  }
+  button.principal:disabled{ background:#a7b3a5; cursor:not-allowed; }
+  button.principal:hover:not(:disabled){ background:var(--azul); }
+  button.secundario{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    background:white; color:var(--azul-oscuro); border:1.5px solid var(--azul-oscuro);
+    padding:10px 18px; font-size:0.85rem; font-weight:600; border-radius:4px;
+    cursor:pointer; margin-right:10px; margin-top:10px;
+  }
+  button.secundario:hover{ background:var(--azul-claro); }
+  .resultados{ display:none; }
+  .resumen{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
+  @media (max-width:640px){ .resumen{grid-template-columns:1fr 1fr;} }
+  .tarjeta-cifra{ background:white; border:1px solid var(--linea); border-radius:4px; padding:16px 18px; }
+  .tarjeta-cifra .cifra{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size:1.7rem; font-weight:700; color:var(--azul-oscuro);
+  }
+  .tarjeta-cifra.alerta .cifra{ color:var(--alerta); }
+  .tarjeta-cifra .etiqueta{
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size:0.72rem; color:var(--tinta-suave); text-transform:uppercase; letter-spacing:0.05em;
+  }
+  .bloque-alerta{
+    border-left:4px solid var(--alerta); background:var(--alerta-fondo);
+    padding:14px 16px; font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size:0.86rem; color:#5c2a10; margin-bottom:20px; border-radius:0 4px 4px 0;
+  }
+  .bloque-info{
+    border-left:4px solid var(--azul); background:var(--azul-claro);
+    padding:14px 16px; font-family: "Helvetica Neue", Arial, sans-serif;
+    font-size:0.86rem; color:var(--azul-oscuro); margin-bottom:20px; border-radius:0 4px 4px 0;
+  }
+  .estado{ font-family: "Helvetica Neue", Arial, sans-serif; font-size:0.86rem; color:var(--tinta-suave); margin-top:10px; }
+  .pie-nota{
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size:0.75rem; color:var(--tinta-suave);
+    margin-top:36px; border-top:1px solid var(--linea); padding-top:16px;
+  }
+  .pie-desarrollo{
+    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size:0.7rem; color:var(--tinta-suave);
+    text-align:center; margin-top:22px; letter-spacing:0.04em;
+  }
+</style>
+</head>
+<body>
+<div class="marco">
+
+  <div class="encabezado">
+    <div>
+      <h1>Asistente de MACO</h1>
+      <div class="sub" style="margin-top:6px;">Genera un archivo limpio, no toca tus listados originales</div>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="numero">Paso uno</div>
+    <h2>Carga tus dos listados originales</h2>
+    <p class="ayuda">Se usan solo para leer, nunca se modifican ni se sobrescriben. La herramienta busca sola la pestaña activa de cada archivo, la última de la lista.</p>
+    <div class="dos-columnas">
+      <div>
+        <span class="etiqueta-campo">Listado GAD</span>
+        <div class="zona-archivo" id="zonaGad" onclick="document.getElementById('archivoGad').click()">Selecciona el Excel de GAD</div>
+        <input type="file" id="archivoGad" accept=".xlsx,.xls">
+      </div>
+      <div>
+        <span class="etiqueta-campo">Listado Mercados</span>
+        <div class="zona-archivo" id="zonaMercados" onclick="document.getElementById('archivoMercados').click()">Selecciona el Excel de Mercados</div>
+        <input type="file" id="archivoMercados" accept=".xlsx,.xls">
+      </div>
+    </div>
+  </div>
+
+  <div class="paso">
+    <div class="numero">Paso dos</div>
+    <h2>Carga las facturas del mes</h2>
+    <p class="ayuda">Selecciona todos los archivos XML de una vez, no hace falta abrir ni leer cada uno.</p>
+    <span class="etiqueta-campo">Archivos XML de factura</span>
+    <div class="zona-archivo" id="zonaXml" onclick="document.getElementById('archivoXml').click()">Selecciona los archivos XML, todos juntos</div>
+    <input type="file" id="archivoXml" accept=".xml" multiple>
+  </div>
+
+  <div class="paso">
+    <div class="numero">Paso tres</div>
+    <h2>Procesa y descarga</h2>
+    <p class="ayuda">Se genera un solo archivo nuevo, con cuatro pestañas: GAD Match, Mercados Match, Alerta y una guía de cómo usarlo.</p>
+    <button class="principal" id="botonProcesar" disabled onclick="procesar()">Procesar facturas</button>
+    <div class="estado" id="estado"></div>
+  </div>
+
+  <div class="resultados" id="resultados">
+    <div class="resumen">
+      <div class="tarjeta-cifra"><div class="cifra" id="cifraTotal">0</div><div class="etiqueta">Facturas leídas</div></div>
+      <div class="tarjeta-cifra"><div class="cifra" id="cifraGad">0</div><div class="etiqueta">Encontradas en GAD</div></div>
+      <div class="tarjeta-cifra"><div class="cifra" id="cifraMercados">0</div><div class="etiqueta">Encontradas en Mercados</div></div>
+      <div class="tarjeta-cifra alerta"><div class="cifra" id="cifraFalla">0</div><div class="etiqueta">Sin coincidencia</div></div>
+    </div>
+
+    <div id="bloqueAdvertenciasContenedor"></div>
+    <div id="bloqueFechas"></div>
+    <div id="bloqueAlertaContenedor"></div>
+
+    <div id="botonesDescarga"></div>
+  </div>
+
+  <div class="pie-nota">
+    Todo el procesamiento ocurre en este navegador, ningún archivo se envía a ningún servidor. Tus listados originales de GAD y Mercados no se modifican en ningún momento, solo se leen. El archivo que se descarga es siempre nuevo, con la fecha y hora de generación en el nombre.
+  </div>
+
+  <div class="pie-desarrollo">Developed by MBVC 2026</div>
+
+</div>
+
+<script>
+let libroGad = null;
+let libroMercados = null;
+let archivosXml = [];
+
+function marcarZonaLista(zonaId, texto){
+  const z = document.getElementById(zonaId);
+  z.classList.add('lista');
+  z.textContent = texto;
+}
+
+document.getElementById('archivoGad').addEventListener('change', function(e){
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    libroGad = XLSX.read(evt.target.result, {type:'binary'});
+    marcarZonaLista('zonaGad', 'Cargado: ' + f.name);
+    revisarListo();
+  };
+  reader.readAsBinaryString(f);
+});
+
+document.getElementById('archivoMercados').addEventListener('change', function(e){
+  const f = e.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    libroMercados = XLSX.read(evt.target.result, {type:'binary'});
+    marcarZonaLista('zonaMercados', 'Cargado: ' + f.name);
+    revisarListo();
+  };
+  reader.readAsBinaryString(f);
+});
+
+document.getElementById('archivoXml').addEventListener('change', function(e){
+  archivosXml = Array.from(e.target.files);
+  marcarZonaLista('zonaXml', archivosXml.length + ' archivos XML cargados');
+  revisarListo();
+});
+
+function revisarListo(){
+  document.getElementById('botonProcesar').disabled = !((libroGad || libroMercados) && archivosXml.length > 0);
+}
+
+function limpiarCodigo(valor){
+  if(valor === null || valor === undefined) return '';
+  return String(valor).replace(/\s|\u00a0/g,'').trim();
+}
+
+function normalizarEncabezado(valor){
+  if(typeof valor !== 'string') return '';
+  return valor.toLowerCase().replace(/\./g,'').trim();
+}
+
+function leerFacturaXml(texto){
+  const parserExterno = new DOMParser();
+  const docExterno = parserExterno.parseFromString(texto, 'text/xml');
+  const nodoComprobante = docExterno.getElementsByTagName('comprobante')[0];
+  if(!nodoComprobante) return null;
+  const docInterno = new DOMParser().parseFromString(nodoComprobante.textContent, 'text/xml');
+
+  const obtener = (tag) => {
+    const el = docInterno.getElementsByTagName(tag)[0];
+    return el ? el.textContent.trim() : '';
+  };
+
+  const numeroFactura = [obtener('estab'), obtener('ptoEmi'), obtener('secuencial')].filter(Boolean).join('-');
+  const valor = parseFloat(obtener('importeTotal'));
+  const fechaEmision = obtener('fechaEmision');
+
+  let referencia = '';
+  const campos = docInterno.getElementsByTagName('campoAdicional');
+  for(let i=0;i<campos.length;i++){
+    if(campos[i].getAttribute('nombre') === 'Referencia'){ referencia = campos[i].textContent.trim(); break; }
+  }
+
+  if(!referencia || isNaN(valor) || !numeroFactura) return null;
+  return { referencia: limpiarCodigo(referencia), numeroFactura, valor, fechaEmision };
+}
+
+function etiquetaEmision(fechaEmision){
+  const partes = fechaEmision.split('/');
+  if(partes.length !== 3) return 'EMISION ' + fechaEmision;
+  return 'EMISION ' + parseInt(partes[0],10) + '/' + parseInt(partes[1],10) + '/' + partes[2];
+}
+
+// Encuentra, dentro de la hoja, la fila de encabezado y las columnas No, Nombre (descripcion o usuario) e Id (cuenta contrato)
+function analizarHoja(hoja){
+  const rango = XLSX.utils.decode_range(hoja['!ref']);
+  for(let r=rango.s.r; r<=rango.e.r; r++){
+    let colId = -1, colNo = -1, colNombre = -1, colRespaldo = -1, tipo = null, tipoPorId = null;
+    for(let c=rango.s.c; c<=rango.e.c; c++){
+      const celda = hoja[XLSX.utils.encode_cell({r,c})];
+      const val = normalizarEncabezado(celda ? celda.v : null);
+      if(!val) continue;
+      if(val === 'cta contrato' && colId === -1){ colId = c; tipoPorId = 'GAD'; }
+      if(val === 'cuenta contrato' && colId === -1){ colId = c; tipoPorId = 'MERCADOS'; }
+      if((val === 'no' || val === 'no ') && colNo === -1) colNo = c;
+      if(val === 'descripcion' && colNombre === -1){ colNombre = c; tipo = 'GAD'; }
+      if(val === 'usuario' && colNombre === -1){ colNombre = c; tipo = 'MERCADOS'; }
+      if((val === 'ubicacion' || val === 'direccion') && colRespaldo === -1) colRespaldo = c;
+    }
+    if(colId !== -1){
+      return { indiceFila:r, colId, colNo, colNombre, colRespaldo, rango, tipo: tipo || tipoPorId };
+    }
+  }
+  return null;
+}
+
+function construirListaCompleta(hoja, encab){
+  const lista = [];
+  const mapa = {};
+  for(let r=encab.indiceFila+1; r<=encab.rango.e.r; r++){
+    const celdaId = hoja[XLSX.utils.encode_cell({r,c:encab.colId})];
+    if(!celdaId || celdaId.v===undefined || celdaId.v===null || String(celdaId.v).trim()==='') continue;
+    const clave = limpiarCodigo(celdaId.v);
+    const celdaNo = encab.colNo!==-1 ? hoja[XLSX.utils.encode_cell({r,c:encab.colNo})] : null;
+    let celdaNombre = encab.colNombre!==-1 ? hoja[XLSX.utils.encode_cell({r,c:encab.colNombre})] : null;
+    if((!celdaNombre || String(celdaNombre.v).trim()==='') && encab.colRespaldo!==-1){
+      celdaNombre = hoja[XLSX.utils.encode_cell({r,c:encab.colRespaldo})];
+    }
+    const entrada = {
+      no: celdaNo ? celdaNo.v : '',
+      nombre: celdaNombre ? celdaNombre.v : '',
+      id: clave,
+      factura: '',
+      valor: '',
+      fechaReal: '',
+      esteMes: ''
+    };
+    lista.push(entrada);
+    if(!mapa[clave]) mapa[clave] = entrada;
+  }
+  return { lista, mapa, tipo: encab.tipo };
+}
+
+function procesar(){
+  document.getElementById('estado').textContent = 'Procesando…';
+  document.getElementById('botonProcesar').disabled = true;
+
+  Promise.all(archivosXml.map(f => f.text())).then(function(textos){
+    const facturas = textos.map(t => { try{ return leerFacturaXml(t); } catch(e){ return null; } }).filter(Boolean);
+
+    // detectar fecha mayoritaria
+    const conteoFechas = {};
+    facturas.forEach(f => { conteoFechas[f.fechaEmision] = (conteoFechas[f.fechaEmision]||0)+1; });
+    let fechaMayoritaria = facturas[0] ? facturas[0].fechaEmision : '';
+    let maxConteo = 0;
+    Object.keys(conteoFechas).forEach(f => { if(conteoFechas[f] > maxConteo){ maxConteo = conteoFechas[f]; fechaMayoritaria = f; } });
+    const etiquetaMes = etiquetaEmision(fechaMayoritaria);
+    const hayFechasMixtas = Object.keys(conteoFechas).length > 1;
+
+    let listaGad = null, listaMercados = null;
+    const advertencias = [];
+    const listaArchivoUno = libroGad ? construirListaCompleta(libroGad.Sheets[libroGad.SheetNames[libroGad.SheetNames.length-1]], analizarHoja(libroGad.Sheets[libroGad.SheetNames[libroGad.SheetNames.length-1]])) : null;
+    const listaArchivoDos = libroMercados ? construirListaCompleta(libroMercados.Sheets[libroMercados.SheetNames[libroMercados.SheetNames.length-1]], analizarHoja(libroMercados.Sheets[libroMercados.SheetNames[libroMercados.SheetNames.length-1]])) : null;
+
+    const candidatos = [listaArchivoUno, listaArchivoDos].filter(Boolean);
+    candidatos.forEach(c => {
+      if(c.tipo === 'GAD' && !listaGad) listaGad = c;
+      else if(c.tipo === 'MERCADOS' && !listaMercados) listaMercados = c;
+    });
+
+    if(listaArchivoUno && listaArchivoDos && listaArchivoUno.tipo && listaArchivoUno.tipo === listaArchivoDos.tipo){
+      advertencias.push('Los dos archivos que subiste parecen ser el mismo tipo de listado (' + listaArchivoUno.tipo + '). Revisa que no hayas cargado el mismo archivo dos veces.');
+      listaMercados = listaMercados || null;
+    }
+    if(listaArchivoUno && !listaArchivoUno.tipo){
+      advertencias.push('No pude reconocer con certeza si el primer archivo cargado es GAD o Mercados, revisa que traiga las columnas DESCRIPCION o USUARIO.');
+    }
+    if(listaArchivoDos && !listaArchivoDos.tipo){
+      advertencias.push('No pude reconocer con certeza si el segundo archivo cargado es GAD o Mercados, revisa que traiga las columnas DESCRIPCION o USUARIO.');
+    }
+    if(listaArchivoUno && listaArchivoUno.tipo === 'MERCADOS'){
+      advertencias.push('Detectamos que el archivo Mercados fue cargado en la casilla de GAD, no te preocupes, lo identificamos igual por su contenido y quedó bien etiquetado.');
+    }
+    if(listaArchivoDos && listaArchivoDos.tipo === 'GAD'){
+      advertencias.push('Detectamos que el archivo GAD fue cargado en la casilla de Mercados, no te preocupes, lo identificamos igual por su contenido y quedó bien etiquetado.');
+    }
+
+    const alerta = [];
+    let contadorGad = 0, contadorMercados = 0;
+
+    facturas.forEach(function(f){
+      if(listaGad && listaGad.mapa[f.referencia]){
+        const entrada = listaGad.mapa[f.referencia];
+        entrada.factura = f.numeroFactura; entrada.valor = f.valor; entrada.fechaReal = f.fechaEmision; entrada.esteMes = 'SI';
+        contadorGad++;
+      } else if(listaMercados && listaMercados.mapa[f.referencia]){
+        const entrada = listaMercados.mapa[f.referencia];
+        entrada.factura = f.numeroFactura; entrada.valor = f.valor; entrada.fechaReal = f.fechaEmision; entrada.esteMes = 'SI';
+        contadorMercados++;
+      } else {
+        alerta.push([f.numeroFactura, f.referencia, f.valor, f.fechaEmision, 'Sin coincidencia en GAD ni en Mercados']);
+      }
+    });
+
+    mostrarResultados(facturas, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias);
+    generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes);
+
+    document.getElementById('estado').textContent = 'Listo.';
+    document.getElementById('botonProcesar').disabled = false;
+  });
+}
+
+function mostrarResultados(facturas, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias){
+  document.getElementById('resultados').style.display = 'block';
+  document.getElementById('cifraTotal').textContent = facturas.length;
+  document.getElementById('cifraGad').textContent = contadorGad;
+  document.getElementById('cifraMercados').textContent = contadorMercados;
+  document.getElementById('cifraFalla').textContent = alerta.length;
+
+  const contenedorAdvertencias = document.getElementById('bloqueAdvertenciasContenedor');
+  contenedorAdvertencias.innerHTML = '';
+  (advertencias || []).forEach(function(msg){
+    const div = document.createElement('div');
+    div.className = 'bloque-info';
+    div.textContent = msg;
+    contenedorAdvertencias.appendChild(div);
+  });
+
+  const bloqueFechas = document.getElementById('bloqueFechas');
+  bloqueFechas.innerHTML = '';
+  if(hayFechasMixtas){
+    const div = document.createElement('div');
+    div.className = 'bloque-alerta';
+    const detalle = Object.keys(conteoFechas).map(k => k + ' (' + conteoFechas[k] + ')').join(', ');
+    div.textContent = 'Este lote trae más de una fecha de emisión: ' + detalle + '. Se usó la fecha con más facturas, ' + etiquetaMes + ', como encabezado. Revisa en el archivo la columna de fecha real de cada factura para confirmar las que quedaron fuera de esa fecha.';
+    bloqueFechas.appendChild(div);
+  } else {
+    const div = document.createElement('div');
+    div.className = 'bloque-info';
+    div.textContent = 'Todas las facturas de este lote traen la misma fecha de emisión, ' + etiquetaMes + '.';
+    bloqueFechas.appendChild(div);
+  }
+
+  const contenedorAlerta = document.getElementById('bloqueAlertaContenedor');
+  contenedorAlerta.innerHTML = '';
+  if(alerta.length > 0){
+    const div = document.createElement('div');
+    div.className = 'bloque-alerta';
+    div.textContent = alerta.length + ' factura(s) no encontraron cuenta contrato coincidente en ninguno de los dos listados. Revísalas en la pestaña Alerta del archivo descargado.';
+    contenedorAlerta.appendChild(div);
+  }
+}
+
+function anchoColumnas(filas, encabezados){
+  return encabezados.map(function(enc, idx){
+    let maxLen = String(enc).length;
+    filas.forEach(function(fila){
+      const val = fila[idx];
+      if(val !== undefined && val !== null){
+        const len = String(val).length;
+        if(len > maxLen) maxLen = len;
+      }
+    });
+    return { wch: Math.min(maxLen + 2, 60) };
+  });
+}
+
+function generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes){
+  const libroSalida = XLSX.utils.book_new();
+
+  const filasGad = (listaGad ? listaGad.lista : []).map(e => [e.no, e.nombre, e.id, e.factura, e.valor, e.fechaReal, e.esteMes]);
+  const encabezadoGad = ['No','DESCRIPCION','Cta Contrato','FACTURA',etiquetaMes,'Fecha real de esta factura','Este mes'];
+  const hojaGad = XLSX.utils.aoa_to_sheet([encabezadoGad].concat(filasGad));
+  hojaGad['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filasGad.length,c:6}}) };
+  hojaGad['!cols'] = anchoColumnas(filasGad, encabezadoGad);
+  XLSX.utils.book_append_sheet(libroSalida, hojaGad, 'GAD Match');
+
+  const filasMerc = (listaMercados ? listaMercados.lista : []).map(e => [e.no, e.nombre, e.id, e.factura, e.valor, e.fechaReal, e.esteMes]);
+  const encabezadoMerc = ['No','USUARIO','Cuenta Contrato','FACTURA',etiquetaMes,'Fecha real de esta factura','Este mes'];
+  const hojaMerc = XLSX.utils.aoa_to_sheet([encabezadoMerc].concat(filasMerc));
+  hojaMerc['!autofilter'] = { ref: XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filasMerc.length,c:6}}) };
+  hojaMerc['!cols'] = anchoColumnas(filasMerc, encabezadoMerc);
+  XLSX.utils.book_append_sheet(libroSalida, hojaMerc, 'Mercados Match');
+
+  const encabezadoAlerta = ['Numero de factura','Codigo buscado (Referencia)','Valor','Fecha de emision','Motivo'];
+  const hojaAlerta = XLSX.utils.aoa_to_sheet([encabezadoAlerta].concat(alerta));
+  hojaAlerta['!cols'] = anchoColumnas(alerta, encabezadoAlerta);
+  XLSX.utils.book_append_sheet(libroSalida, hojaAlerta, 'Alerta');
+
+  const guia = [
+    ['Como usar este archivo'],
+    [''],
+    ['Este archivo es nuevo y limpio. No modifica tus listados originales de GAD ni de Mercados.'],
+    ['Las pestañas GAD Match y Mercados Match traen la lista completa de todos los clientes de tu listado real, en el mismo orden, no solo los que tuvieron factura este mes.'],
+    ['La columna No es el mismo numero de fila que ya usas en tu listado real, sirve para ubicar la fila a simple vista.'],
+    ['La columna Este mes dice SI en las filas que sí trajeron factura nueva, y queda en blanco en las que no. Puedes usar el filtro que ya viene activado en el encabezado para ver solo las filas con SI.'],
+    [''],
+    ['Como pasar los valores a tu archivo real'],
+    ['Como el orden de filas es identico al de tu listado real, selecciona de un jalón las columnas FACTURA y la columna de fecha en esta pestaña, cópialas, y en tu listado real pégalas directo en las dos columnas nuevas que agregues al final. La fila 2 de aquí corresponde a la fila 2 de tu archivo real, y así sucesivamente.'],
+    [''],
+    ['La pestaña Alerta trae las facturas que no encontraron codigo coincidente en ningun listado, revisalas a mano, puede tratarse de un predio nuevo que aun no esta registrado.']
+  ];
+  const hojaGuia = XLSX.utils.aoa_to_sheet(guia);
+  hojaGuia['!cols'] = [{wch:110}];
+  XLSX.utils.book_append_sheet(libroSalida, hojaGuia, 'Como usar este archivo');
+
+  const ahora = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const marcaTiempo = ahora.getFullYear() + '_' + pad(ahora.getMonth()+1) + '_' + pad(ahora.getDate()) + '_' + pad(ahora.getHours()) + pad(ahora.getMinutes());
+  const nombreArchivo = 'EMAC_conciliacion_' + marcaTiempo + '.xlsx';
+
+  const contenedorBotones = document.getElementById('botonesDescarga');
+  contenedorBotones.innerHTML = '';
+  const btn = document.createElement('button');
+  btn.className = 'secundario';
+  btn.textContent = 'Descargar ' + nombreArchivo;
+  btn.onclick = function(){ XLSX.writeFile(libroSalida, nombreArchivo); };
+  contenedorBotones.appendChild(btn);
+}
+</script>
+
+</body>
+</html>
