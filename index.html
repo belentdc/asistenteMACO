@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <title>Asistente de MACO</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  window.addEventListener('load', function(){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  });
+</script>
 <style>
   :root{
     --azul: #2f5f8a;
@@ -24,101 +31,82 @@
     font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
     line-height:1.5;
   }
-  .marco{ max-width:920px; margin:0 auto; padding:40px 24px 80px; }
+  .marco{ max-width:960px; margin:0 auto; padding:40px 24px 80px; }
   .encabezado{
     border-bottom:3px solid var(--azul-oscuro);
     padding-bottom:20px; margin-bottom:32px;
-    display:flex; align-items:baseline; justify-content:space-between; gap:16px; flex-wrap:wrap;
   }
-  .encabezado h1{
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-weight:700; font-size:1.6rem; margin:0; color:var(--azul-oscuro);
-  }
-  .encabezado .sub{
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size:0.8rem; color:var(--tinta-suave);
-    text-transform:uppercase; letter-spacing:0.08em;
-  }
-  .franja{
-    background:var(--azul); color:white;
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase;
-    padding:6px 12px; display:inline-block; border-radius:2px;
-  }
+  .encabezado h1{ font-weight:700; font-size:1.6rem; margin:0; color:var(--azul-oscuro); }
+  .encabezado .sub{ font-size:0.85rem; color:var(--tinta-suave); margin-top:6px; }
   .paso{
-    margin-bottom:28px; border:1px solid var(--linea); background:white;
-    border-radius:4px; padding:22px 24px;
+    margin-bottom:26px; border:1px solid var(--linea); background:white;
+    border-radius:6px; padding:22px 24px;
   }
   .paso .numero{
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-weight:700; font-size:0.72rem; letter-spacing:0.12em;
+    font-weight:700; font-size:0.72rem; letter-spacing:0.1em;
     color:var(--azul); text-transform:uppercase; margin-bottom:6px;
   }
-  .paso h2{ font-family: "Helvetica Neue", Arial, sans-serif; font-size:1.05rem; margin:0 0 6px; }
-  .paso p.ayuda{
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size:0.86rem; color:var(--tinta-suave); margin:0 0 16px;
-  }
+  .paso h2{ font-size:1.05rem; margin:0 0 6px; }
+  .paso p.ayuda{ font-size:0.86rem; color:var(--tinta-suave); margin:0 0 16px; }
   .zona-archivo{
-    border:2px dashed var(--linea); border-radius:4px; padding:20px; text-align:center;
-    font-family: "Helvetica Neue", Arial, sans-serif; font-size:0.88rem;
-    color:var(--tinta-suave); background:var(--azul-claro); cursor:pointer;
+    border:2px dashed var(--linea); border-radius:6px; padding:18px; text-align:center;
+    font-size:0.88rem; color:var(--tinta-suave); background:var(--azul-claro); cursor:pointer;
   }
   .zona-archivo:hover{ border-color:var(--azul); }
   .zona-archivo.lista{ border-style:solid; border-color:var(--azul); color:var(--azul-oscuro); font-weight:600; }
   input[type=file]{ display:none; }
   .dos-columnas{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
   @media (max-width:640px){ .dos-columnas{grid-template-columns:1fr;} }
-  .etiqueta-campo{
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size:0.78rem; font-weight:600; margin-bottom:8px; display:block;
+  .etiqueta-campo{ font-size:0.78rem; font-weight:600; margin-bottom:8px; display:block; }
+  .selector-modo{ display:flex; gap:10px; margin-bottom:14px; }
+  .opcion-modo{
+    flex:1; border:1.5px solid var(--linea); border-radius:6px; padding:10px 14px;
+    text-align:center; cursor:pointer; font-size:0.85rem; font-weight:600; color:var(--tinta-suave);
   }
+  .opcion-modo.activa{ border-color:var(--azul); background:var(--azul-claro); color:var(--azul-oscuro); }
   button.principal{
-    font-family: "Helvetica Neue", Arial, sans-serif;
     background:var(--azul-oscuro); color:white; border:none;
-    padding:14px 28px; font-size:0.95rem; font-weight:600;
-    border-radius:4px; cursor:pointer;
+    padding:13px 26px; font-size:0.95rem; font-weight:600;
+    border-radius:6px; cursor:pointer;
   }
-  button.principal:disabled{ background:#a7b3a5; cursor:not-allowed; }
+  button.principal:disabled{ background:#a7b3ba; cursor:not-allowed; }
   button.principal:hover:not(:disabled){ background:var(--azul); }
   button.secundario{
-    font-family: "Helvetica Neue", Arial, sans-serif;
     background:white; color:var(--azul-oscuro); border:1.5px solid var(--azul-oscuro);
-    padding:10px 18px; font-size:0.85rem; font-weight:600; border-radius:4px;
+    padding:9px 16px; font-size:0.85rem; font-weight:600; border-radius:6px;
     cursor:pointer; margin-right:10px; margin-top:10px;
   }
   button.secundario:hover{ background:var(--azul-claro); }
   .resultados{ display:none; }
-  .resumen{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px; }
+  .resumen{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
   @media (max-width:640px){ .resumen{grid-template-columns:1fr 1fr;} }
-  .tarjeta-cifra{ background:white; border:1px solid var(--linea); border-radius:4px; padding:16px 18px; }
-  .tarjeta-cifra .cifra{
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size:1.7rem; font-weight:700; color:var(--azul-oscuro);
-  }
+  .tarjeta-cifra{ background:white; border:1px solid var(--linea); border-radius:6px; padding:14px 16px; }
+  .tarjeta-cifra .cifra{ font-size:1.6rem; font-weight:700; color:var(--azul-oscuro); }
   .tarjeta-cifra.alerta .cifra{ color:var(--alerta); }
-  .tarjeta-cifra .etiqueta{
-    font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size:0.72rem; color:var(--tinta-suave); text-transform:uppercase; letter-spacing:0.05em;
-  }
+  .tarjeta-cifra .etiqueta{ font-size:0.7rem; color:var(--tinta-suave); text-transform:uppercase; letter-spacing:0.05em; }
   .bloque-alerta{
     border-left:4px solid var(--alerta); background:var(--alerta-fondo);
-    padding:14px 16px; font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size:0.86rem; color:#5c2a10; margin-bottom:20px; border-radius:0 4px 4px 0;
+    padding:12px 15px; font-size:0.86rem; color:#5c2a10; margin-bottom:16px; border-radius:0 6px 6px 0;
   }
   .bloque-info{
     border-left:4px solid var(--azul); background:var(--azul-claro);
-    padding:14px 16px; font-family: "Helvetica Neue", Arial, sans-serif;
-    font-size:0.86rem; color:var(--azul-oscuro); margin-bottom:20px; border-radius:0 4px 4px 0;
+    padding:12px 15px; font-size:0.86rem; color:var(--azul-oscuro); margin-bottom:16px; border-radius:0 6px 6px 0;
   }
-  .estado{ font-family: "Helvetica Neue", Arial, sans-serif; font-size:0.86rem; color:var(--tinta-suave); margin-top:10px; }
+  .estado{ font-size:0.86rem; color:var(--tinta-suave); margin-top:10px; }
+  table.previa{ width:100%; border-collapse:collapse; font-size:0.8rem; margin:14px 0; }
+  table.previa th{
+    text-align:left; background:var(--azul-claro); color:var(--azul-oscuro);
+    padding:7px 9px; border-bottom:2px solid var(--azul); font-size:0.68rem;
+    letter-spacing:0.04em; text-transform:uppercase;
+  }
+  table.previa td{ padding:6px 9px; border-bottom:1px solid var(--linea); }
+  .previa-contenedor{ max-height:320px; overflow-y:auto; border:1px solid var(--linea); border-radius:6px; }
   .pie-nota{
-    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size:0.75rem; color:var(--tinta-suave);
-    margin-top:36px; border-top:1px solid var(--linea); padding-top:16px;
+    font-size:0.75rem; color:var(--tinta-suave);
+    margin-top:32px; border-top:1px solid var(--linea); padding-top:16px;
   }
   .pie-desarrollo{
-    font-family: -apple-system, "Helvetica Neue", Arial, sans-serif; font-size:0.7rem; color:var(--tinta-suave);
-    text-align:center; margin-top:22px; letter-spacing:0.04em;
+    font-size:0.7rem; color:var(--tinta-suave); text-align:center; margin-top:20px; letter-spacing:0.04em;
   }
 </style>
 </head>
@@ -126,26 +114,24 @@
 <div class="marco">
 
   <div class="encabezado">
-    <div>
-      <h1>Asistente de MACO</h1>
-      <div class="sub" style="margin-top:6px;">Genera un archivo limpio, no toca tus listados originales</div>
-    </div>
+    <h1>Asistente de MACO</h1>
+    <div class="sub">Genera un archivo limpio y carpetas de facturas listas para imprimir, no toca tus listados originales</div>
   </div>
 
   <div class="paso">
     <div class="numero">Paso uno</div>
     <h2>Carga tus dos listados originales</h2>
-    <p class="ayuda">Se usan solo para leer, nunca se modifican ni se sobrescriben. La herramienta busca sola la pestaña activa de cada archivo, la última de la lista.</p>
+    <p class="ayuda">Se usan solo para leer, nunca se modifican. La herramienta detecta sola cuál es GAD y cuál es Mercados, aunque los cargues en la casilla contraria.</p>
     <div class="dos-columnas">
       <div>
-        <span class="etiqueta-campo">Listado GAD</span>
-        <div class="zona-archivo" id="zonaGad" onclick="document.getElementById('archivoGad').click()">Selecciona el Excel de GAD</div>
-        <input type="file" id="archivoGad" accept=".xlsx,.xls">
+        <span class="etiqueta-campo">Listado uno</span>
+        <div class="zona-archivo" id="zonaListadoUno" onclick="document.getElementById('archivoListadoUno').click()">Selecciona un Excel</div>
+        <input type="file" id="archivoListadoUno" accept=".xlsx,.xls">
       </div>
       <div>
-        <span class="etiqueta-campo">Listado Mercados</span>
-        <div class="zona-archivo" id="zonaMercados" onclick="document.getElementById('archivoMercados').click()">Selecciona el Excel de Mercados</div>
-        <input type="file" id="archivoMercados" accept=".xlsx,.xls">
+        <span class="etiqueta-campo">Listado dos</span>
+        <div class="zona-archivo" id="zonaListadoDos" onclick="document.getElementById('archivoListadoDos').click()">Selecciona un Excel</div>
+        <input type="file" id="archivoListadoDos" accept=".xlsx,.xls">
       </div>
     </div>
   </div>
@@ -153,16 +139,27 @@
   <div class="paso">
     <div class="numero">Paso dos</div>
     <h2>Carga las facturas del mes</h2>
-    <p class="ayuda">Selecciona todos los archivos XML de una vez, no hace falta abrir ni leer cada uno.</p>
-    <span class="etiqueta-campo">Archivos XML de factura</span>
-    <div class="zona-archivo" id="zonaXml" onclick="document.getElementById('archivoXml').click()">Selecciona los archivos XML, todos juntos</div>
-    <input type="file" id="archivoXml" accept=".xml" multiple>
+    <p class="ayuda">Elige cómo las tienes, PDF sueltos o un archivo comprimido. Si el comprimido trae correos completos en formato EML, la herramienta saca el PDF de adentro sola.</p>
+    <div class="selector-modo">
+      <div class="opcion-modo activa" id="modoPdf" onclick="cambiarModo('pdf')">PDF sueltos</div>
+      <div class="opcion-modo" id="modoZip" onclick="cambiarModo('zip')">Un archivo comprimido (zip)</div>
+    </div>
+    <div id="bloqueEntradaPdf">
+      <span class="etiqueta-campo">Archivos PDF de factura</span>
+      <div class="zona-archivo" id="zonaPdf" onclick="document.getElementById('archivoPdf').click()">Selecciona los PDF, todos juntos</div>
+      <input type="file" id="archivoPdf" accept=".pdf" multiple>
+    </div>
+    <div id="bloqueEntradaZip" style="display:none;">
+      <span class="etiqueta-campo">Archivo comprimido (zip)</span>
+      <div class="zona-archivo" id="zonaZip" onclick="document.getElementById('archivoZip').click()">Selecciona el archivo zip</div>
+      <input type="file" id="archivoZip" accept=".zip">
+    </div>
   </div>
 
   <div class="paso">
     <div class="numero">Paso tres</div>
     <h2>Procesa y descarga</h2>
-    <p class="ayuda">Se genera un solo archivo nuevo, con cuatro pestañas: GAD Match, Mercados Match, Alerta y una guía de cómo usarlo.</p>
+    <p class="ayuda">Vas a poder descargar el Excel de conciliación y dos carpetas comprimidas con los PDF, una para GAD y otra para Mercados.</p>
     <button class="principal" id="botonProcesar" disabled onclick="procesar()">Procesar facturas</button>
     <div class="estado" id="estado"></div>
   </div>
@@ -179,21 +176,24 @@
     <div id="bloqueFechas"></div>
     <div id="bloqueAlertaContenedor"></div>
 
+    <div id="previaContenedor"></div>
+
     <div id="botonesDescarga"></div>
+    <div id="botonesDescargaPdf" style="margin-top:14px;"></div>
   </div>
 
   <div class="pie-nota">
-    Todo el procesamiento ocurre en este navegador, ningún archivo se envía a ningún servidor. Tus listados originales de GAD y Mercados no se modifican en ningún momento, solo se leen. El archivo que se descarga es siempre nuevo, con la fecha y hora de generación en el nombre.
+    Todo el procesamiento ocurre en este navegador, ningún archivo se envía a ningún servidor. Tus listados originales no se modifican en ningún momento, solo se leen.
   </div>
-
   <div class="pie-desarrollo">Developed by MBVC 2026</div>
 
 </div>
 
 <script>
-let libroGad = null;
-let libroMercados = null;
-let archivosXml = [];
+let libroUno = null, libroDos = null;
+let archivosPdf = [];
+let archivoZip = null;
+let modoEntrada = 'pdf';
 
 function marcarZonaLista(zonaId, texto){
   const z = document.getElementById(zonaId);
@@ -201,83 +201,127 @@ function marcarZonaLista(zonaId, texto){
   z.textContent = texto;
 }
 
-document.getElementById('archivoGad').addEventListener('change', function(e){
-  const f = e.target.files[0];
-  if(!f) return;
+function cambiarModo(modo){
+  modoEntrada = modo;
+  document.getElementById('modoPdf').classList.toggle('activa', modo==='pdf');
+  document.getElementById('modoZip').classList.toggle('activa', modo==='zip');
+  document.getElementById('bloqueEntradaPdf').style.display = modo==='pdf' ? 'block' : 'none';
+  document.getElementById('bloqueEntradaZip').style.display = modo==='zip' ? 'block' : 'none';
+  revisarListo();
+}
+
+document.getElementById('archivoListadoUno').addEventListener('change', function(e){
+  const f = e.target.files[0]; if(!f) return;
   const reader = new FileReader();
-  reader.onload = function(evt){
-    libroGad = XLSX.read(evt.target.result, {type:'binary'});
-    marcarZonaLista('zonaGad', 'Cargado: ' + f.name);
-    revisarListo();
-  };
+  reader.onload = function(evt){ libroUno = XLSX.read(evt.target.result, {type:'binary'}); marcarZonaLista('zonaListadoUno', 'Cargado: ' + f.name); revisarListo(); };
   reader.readAsBinaryString(f);
 });
-
-document.getElementById('archivoMercados').addEventListener('change', function(e){
-  const f = e.target.files[0];
-  if(!f) return;
+document.getElementById('archivoListadoDos').addEventListener('change', function(e){
+  const f = e.target.files[0]; if(!f) return;
   const reader = new FileReader();
-  reader.onload = function(evt){
-    libroMercados = XLSX.read(evt.target.result, {type:'binary'});
-    marcarZonaLista('zonaMercados', 'Cargado: ' + f.name);
-    revisarListo();
-  };
+  reader.onload = function(evt){ libroDos = XLSX.read(evt.target.result, {type:'binary'}); marcarZonaLista('zonaListadoDos', 'Cargado: ' + f.name); revisarListo(); };
   reader.readAsBinaryString(f);
 });
-
-document.getElementById('archivoXml').addEventListener('change', function(e){
-  archivosXml = Array.from(e.target.files);
-  marcarZonaLista('zonaXml', archivosXml.length + ' archivos XML cargados');
+document.getElementById('archivoPdf').addEventListener('change', function(e){
+  archivosPdf = Array.from(e.target.files);
+  marcarZonaLista('zonaPdf', archivosPdf.length + ' archivos PDF cargados');
+  revisarListo();
+});
+document.getElementById('archivoZip').addEventListener('change', function(e){
+  archivoZip = e.target.files[0] || null;
+  marcarZonaLista('zonaZip', archivoZip ? ('Cargado: ' + archivoZip.name) : 'Selecciona el archivo zip');
   revisarListo();
 });
 
 function revisarListo(){
-  document.getElementById('botonProcesar').disabled = !((libroGad || libroMercados) && archivosXml.length > 0);
+  const hayListado = libroUno || libroDos;
+  const hayFacturas = modoEntrada === 'pdf' ? archivosPdf.length > 0 : !!archivoZip;
+  document.getElementById('botonProcesar').disabled = !(hayListado && hayFacturas);
 }
 
 function limpiarCodigo(valor){
   if(valor === null || valor === undefined) return '';
   return String(valor).replace(/\s|\u00a0/g,'').trim();
 }
-
 function normalizarEncabezado(valor){
   if(typeof valor !== 'string') return '';
   return valor.toLowerCase().replace(/\./g,'').trim();
 }
 
-function leerFacturaXml(texto){
-  const parserExterno = new DOMParser();
-  const docExterno = parserExterno.parseFromString(texto, 'text/xml');
-  const nodoComprobante = docExterno.getElementsByTagName('comprobante')[0];
-  if(!nodoComprobante) return null;
-  const docInterno = new DOMParser().parseFromString(nodoComprobante.textContent, 'text/xml');
+// ---------- Lectura de PDF ----------
+async function leerFacturaDesdePdf(bytes, nombreArchivo){
+  try{
+    const doc = await pdfjsLib.getDocument({data: bytes}).promise;
+    const pagina = await doc.getPage(1);
+    const contenido = await pagina.getTextContent();
+    const texto = contenido.items.map(i => i.str).join(' ');
 
-  const obtener = (tag) => {
-    const el = docInterno.getElementsByTagName(tag)[0];
-    return el ? el.textContent.trim() : '';
-  };
+    const mFactura = texto.match(/No\.?\s*(\d{3}-\d{3}-\d{9})/);
+    const mReferencia = texto.match(/Referencia:?\s*(\d{6,15})/);
+    const mValor = texto.match(/VALOR TOTAL\s*([\d]+\.[\d]{2})/);
+    const mFecha = texto.match(/Fecha Emisi[oó]n:?\s*(\d{2}\/\d{2}\/\d{4})/);
 
-  const numeroFactura = [obtener('estab'), obtener('ptoEmi'), obtener('secuencial')].filter(Boolean).join('-');
-  const valor = parseFloat(obtener('importeTotal'));
-  const fechaEmision = obtener('fechaEmision');
+    if(!mFactura || !mReferencia || !mValor) return null;
 
-  let referencia = '';
-  const campos = docInterno.getElementsByTagName('campoAdicional');
-  for(let i=0;i<campos.length;i++){
-    if(campos[i].getAttribute('nombre') === 'Referencia'){ referencia = campos[i].textContent.trim(); break; }
+    return {
+      referencia: limpiarCodigo(mReferencia[1]),
+      numeroFactura: mFactura[1],
+      valor: parseFloat(mValor[1]),
+      fechaEmision: mFecha ? mFecha[1] : '',
+      nombreArchivo,
+      bytes
+    };
+  } catch(e){
+    return null;
   }
-
-  if(!referencia || isNaN(valor) || !numeroFactura) return null;
-  return { referencia: limpiarCodigo(referencia), numeroFactura, valor, fechaEmision };
 }
 
-function etiquetaEmision(fechaEmision){
-  const partes = fechaEmision.split('/');
-  if(partes.length !== 3) return 'EMISION ' + fechaEmision;
-  return 'EMISION ' + parseInt(partes[0],10) + '/' + parseInt(partes[1],10) + '/' + partes[2];
+// ---------- Lectura de EML dentro de un zip ----------
+function extraerAdjuntosPdfDeEml(texto, nombreCorreo){
+  const adjuntos = [];
+  const mBoundary = texto.match(/boundary="?([^"\r\n;]+)"?/i);
+  if(!mBoundary) return adjuntos;
+  const boundary = mBoundary[1];
+  const partes = texto.split('--' + boundary);
+  partes.forEach(function(parte, idx){
+    if(!/Content-Type:\s*application\/pdf/i.test(parte)) return;
+    const mNombre = parte.match(/filename="?([^"\r\n;]+)"?/i);
+    const nombre = mNombre ? mNombre[1] : (nombreCorreo.replace(/\.eml$/i,'') + '_adjunto_' + idx + '.pdf');
+    const separador = parte.indexOf('\r\n\r\n') !== -1 ? '\r\n\r\n' : '\n\n';
+    const idxSep = parte.indexOf(separador);
+    if(idxSep === -1) return;
+    const cuerpoBase64 = parte.slice(idxSep + separador.length).replace(/[\r\n]/g,'');
+    try{
+      const binario = atob(cuerpoBase64);
+      const bytes = new Uint8Array(binario.length);
+      for(let i=0;i<binario.length;i++) bytes[i] = binario.charCodeAt(i);
+      adjuntos.push({ nombre, bytes });
+    } catch(e){}
+  });
+  return adjuntos;
 }
 
-// Encuentra, dentro de la hoja, la fila de encabezado y las columnas No, Nombre (descripcion o usuario) e Id (cuenta contrato)
+async function extraerPdfsDeZip(archivoZipFile){
+  const buffer = await archivoZipFile.arrayBuffer();
+  const zip = await JSZip.loadAsync(buffer);
+  const resultados = [];
+  const nombres = Object.keys(zip.files);
+  for(const nombre of nombres){
+    const entrada = zip.files[nombre];
+    if(entrada.dir) continue;
+    if(/\.pdf$/i.test(nombre)){
+      const bytes = await entrada.async('uint8array');
+      resultados.push({ nombre: nombre.split('/').pop(), bytes });
+    } else if(/\.eml$/i.test(nombre)){
+      const texto = await entrada.async('string');
+      const adjuntos = extraerAdjuntosPdfDeEml(texto, nombre.split('/').pop());
+      adjuntos.forEach(a => resultados.push(a));
+    }
+  }
+  return resultados;
+}
+
+// ---------- Analisis de listados (igual que antes) ----------
 function analizarHoja(hoja){
   const rango = XLSX.utils.decode_range(hoja['!ref']);
   for(let r=rango.s.r; r<=rango.e.r; r++){
@@ -293,9 +337,7 @@ function analizarHoja(hoja){
       if(val === 'usuario' && colNombre === -1){ colNombre = c; tipo = 'MERCADOS'; }
       if((val === 'ubicacion' || val === 'direccion') && colRespaldo === -1) colRespaldo = c;
     }
-    if(colId !== -1){
-      return { indiceFila:r, colId, colNo, colNombre, colRespaldo, rango, tipo: tipo || tipoPorId };
-    }
+    if(colId !== -1) return { indiceFila:r, colId, colNo, colNombre, colRespaldo, rango, tipo: tipo || tipoPorId };
   }
   return null;
 }
@@ -312,128 +354,150 @@ function construirListaCompleta(hoja, encab){
     if((!celdaNombre || String(celdaNombre.v).trim()==='') && encab.colRespaldo!==-1){
       celdaNombre = hoja[XLSX.utils.encode_cell({r,c:encab.colRespaldo})];
     }
-    const entrada = {
-      no: celdaNo ? celdaNo.v : '',
-      nombre: celdaNombre ? celdaNombre.v : '',
-      id: clave,
-      factura: '',
-      valor: '',
-      fechaReal: '',
-      esteMes: ''
-    };
+    const entrada = { no: celdaNo ? celdaNo.v : '', nombre: celdaNombre ? celdaNombre.v : '', id: clave, factura:'', valor:'', fechaReal:'', esteMes:'' };
     lista.push(entrada);
     if(!mapa[clave]) mapa[clave] = entrada;
   }
   return { lista, mapa, tipo: encab.tipo };
 }
 
-function procesar(){
-  document.getElementById('estado').textContent = 'Procesando…';
-  document.getElementById('botonProcesar').disabled = true;
-
-  Promise.all(archivosXml.map(f => f.text())).then(function(textos){
-    const facturas = textos.map(t => { try{ return leerFacturaXml(t); } catch(e){ return null; } }).filter(Boolean);
-
-    // detectar fecha mayoritaria
-    const conteoFechas = {};
-    facturas.forEach(f => { conteoFechas[f.fechaEmision] = (conteoFechas[f.fechaEmision]||0)+1; });
-    let fechaMayoritaria = facturas[0] ? facturas[0].fechaEmision : '';
-    let maxConteo = 0;
-    Object.keys(conteoFechas).forEach(f => { if(conteoFechas[f] > maxConteo){ maxConteo = conteoFechas[f]; fechaMayoritaria = f; } });
-    const etiquetaMes = etiquetaEmision(fechaMayoritaria);
-    const hayFechasMixtas = Object.keys(conteoFechas).length > 1;
-
-    let listaGad = null, listaMercados = null;
-    const advertencias = [];
-    const listaArchivoUno = libroGad ? construirListaCompleta(libroGad.Sheets[libroGad.SheetNames[libroGad.SheetNames.length-1]], analizarHoja(libroGad.Sheets[libroGad.SheetNames[libroGad.SheetNames.length-1]])) : null;
-    const listaArchivoDos = libroMercados ? construirListaCompleta(libroMercados.Sheets[libroMercados.SheetNames[libroMercados.SheetNames.length-1]], analizarHoja(libroMercados.Sheets[libroMercados.SheetNames[libroMercados.SheetNames.length-1]])) : null;
-
-    const candidatos = [listaArchivoUno, listaArchivoDos].filter(Boolean);
-    candidatos.forEach(c => {
-      if(c.tipo === 'GAD' && !listaGad) listaGad = c;
-      else if(c.tipo === 'MERCADOS' && !listaMercados) listaMercados = c;
-    });
-
-    if(listaArchivoUno && listaArchivoDos && listaArchivoUno.tipo && listaArchivoUno.tipo === listaArchivoDos.tipo){
-      advertencias.push('Los dos archivos que subiste parecen ser el mismo tipo de listado (' + listaArchivoUno.tipo + '). Revisa que no hayas cargado el mismo archivo dos veces.');
-      listaMercados = listaMercados || null;
-    }
-    if(listaArchivoUno && !listaArchivoUno.tipo){
-      advertencias.push('No pude reconocer con certeza si el primer archivo cargado es GAD o Mercados, revisa que traiga las columnas DESCRIPCION o USUARIO.');
-    }
-    if(listaArchivoDos && !listaArchivoDos.tipo){
-      advertencias.push('No pude reconocer con certeza si el segundo archivo cargado es GAD o Mercados, revisa que traiga las columnas DESCRIPCION o USUARIO.');
-    }
-    if(listaArchivoUno && listaArchivoUno.tipo === 'MERCADOS'){
-      advertencias.push('Detectamos que el archivo Mercados fue cargado en la casilla de GAD, no te preocupes, lo identificamos igual por su contenido y quedó bien etiquetado.');
-    }
-    if(listaArchivoDos && listaArchivoDos.tipo === 'GAD'){
-      advertencias.push('Detectamos que el archivo GAD fue cargado en la casilla de Mercados, no te preocupes, lo identificamos igual por su contenido y quedó bien etiquetado.');
-    }
-
-    const alerta = [];
-    let contadorGad = 0, contadorMercados = 0;
-
-    facturas.forEach(function(f){
-      if(listaGad && listaGad.mapa[f.referencia]){
-        const entrada = listaGad.mapa[f.referencia];
-        entrada.factura = f.numeroFactura; entrada.valor = f.valor; entrada.fechaReal = f.fechaEmision; entrada.esteMes = 'SI';
-        contadorGad++;
-      } else if(listaMercados && listaMercados.mapa[f.referencia]){
-        const entrada = listaMercados.mapa[f.referencia];
-        entrada.factura = f.numeroFactura; entrada.valor = f.valor; entrada.fechaReal = f.fechaEmision; entrada.esteMes = 'SI';
-        contadorMercados++;
-      } else {
-        alerta.push([f.numeroFactura, f.referencia, f.valor, f.fechaEmision, 'Sin coincidencia en GAD ni en Mercados']);
-      }
-    });
-
-    mostrarResultados(facturas, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias);
-    generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes);
-
-    document.getElementById('estado').textContent = 'Listo.';
-    document.getElementById('botonProcesar').disabled = false;
-  });
+function etiquetaEmision(fechaEmision){
+  const partes = fechaEmision.split('/');
+  if(partes.length !== 3) return 'EMISION ' + fechaEmision;
+  return 'EMISION ' + parseInt(partes[0],10) + '/' + parseInt(partes[1],10) + '/' + partes[2];
 }
 
-function mostrarResultados(facturas, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias){
+// ---------- Proceso principal ----------
+async function procesar(){
+  document.getElementById('estado').textContent = 'Leyendo facturas…';
+  document.getElementById('botonProcesar').disabled = true;
+
+  let entradas = [];
+  if(modoEntrada === 'pdf'){
+    for(const archivo of archivosPdf){
+      const bytes = new Uint8Array(await archivo.arrayBuffer());
+      entradas.push({ nombre: archivo.name, bytes });
+    }
+  } else {
+    entradas = await extraerPdfsDeZip(archivoZip);
+  }
+
+  document.getElementById('estado').textContent = 'Extrayendo datos de cada PDF…';
+  const facturasCrudas = await Promise.all(entradas.map(e => leerFacturaDesdePdf(e.bytes, e.nombre)));
+  const facturasFallidas = entradas.length - facturasCrudas.filter(Boolean).length;
+  const facturas = facturasCrudas.filter(Boolean);
+
+  const conteoFechas = {};
+  facturas.forEach(f => { if(f.fechaEmision) conteoFechas[f.fechaEmision] = (conteoFechas[f.fechaEmision]||0)+1; });
+  let fechaMayoritaria = '', maxConteo = 0;
+  Object.keys(conteoFechas).forEach(f => { if(conteoFechas[f] > maxConteo){ maxConteo = conteoFechas[f]; fechaMayoritaria = f; } });
+  const etiquetaMes = fechaMayoritaria ? etiquetaEmision(fechaMayoritaria) : 'EMISION';
+  const hayFechasMixtas = Object.keys(conteoFechas).length > 1;
+
+  const listaArchivoUno = libroUno ? construirListaCompleta(libroUno.Sheets[libroUno.SheetNames[libroUno.SheetNames.length-1]], analizarHoja(libroUno.Sheets[libroUno.SheetNames[libroUno.SheetNames.length-1]])) : null;
+  const listaArchivoDos = libroDos ? construirListaCompleta(libroDos.Sheets[libroDos.SheetNames[libroDos.SheetNames.length-1]], analizarHoja(libroDos.Sheets[libroDos.SheetNames[libroDos.SheetNames.length-1]])) : null;
+
+  let listaGad = null, listaMercados = null;
+  const advertencias = [];
+  [listaArchivoUno, listaArchivoDos].filter(Boolean).forEach(c => {
+    if(c.tipo === 'GAD' && !listaGad) listaGad = c;
+    else if(c.tipo === 'MERCADOS' && !listaMercados) listaMercados = c;
+  });
+  if(listaArchivoUno && listaArchivoDos && listaArchivoUno.tipo && listaArchivoUno.tipo === listaArchivoDos.tipo){
+    advertencias.push('Los dos listados que subiste parecen ser el mismo tipo (' + listaArchivoUno.tipo + '). Revisa que no hayas cargado el mismo archivo dos veces.');
+  }
+  if(listaArchivoUno && !listaArchivoUno.tipo) advertencias.push('No pude reconocer con certeza si el primer listado es GAD o Mercados.');
+  if(listaArchivoDos && !listaArchivoDos.tipo) advertencias.push('No pude reconocer con certeza si el segundo listado es GAD o Mercados.');
+  if(facturasFallidas > 0) advertencias.push(facturasFallidas + ' archivo(s) no se pudieron leer bien como factura EMAC, revisa que sean el PDF original sin editar.');
+
+  document.getElementById('estado').textContent = 'Cruzando datos…';
+
+  const alerta = [];
+  let contadorGad = 0, contadorMercados = 0;
+  const destinoPorFactura = {};
+  const filasPrevia = [];
+
+  facturas.forEach(function(f){
+    if(listaGad && listaGad.mapa[f.referencia]){
+      const entrada = listaGad.mapa[f.referencia];
+      entrada.factura = f.numeroFactura; entrada.valor = f.valor; entrada.fechaReal = f.fechaEmision; entrada.esteMes = 'SI';
+      contadorGad++; destinoPorFactura[f.numeroFactura] = 'GAD';
+      filasPrevia.push([f.numeroFactura, entrada.nombre, f.referencia, f.valor, 'GAD']);
+    } else if(listaMercados && listaMercados.mapa[f.referencia]){
+      const entrada = listaMercados.mapa[f.referencia];
+      entrada.factura = f.numeroFactura; entrada.valor = f.valor; entrada.fechaReal = f.fechaEmision; entrada.esteMes = 'SI';
+      contadorMercados++; destinoPorFactura[f.numeroFactura] = 'MERCADOS';
+      filasPrevia.push([f.numeroFactura, entrada.nombre, f.referencia, f.valor, 'Mercados']);
+    } else {
+      alerta.push([f.numeroFactura, f.referencia, f.valor, f.fechaEmision, 'Sin coincidencia en GAD ni en Mercados']);
+      destinoPorFactura[f.numeroFactura] = 'ALERTA';
+      filasPrevia.push([f.numeroFactura, '(sin coincidencia)', f.referencia, f.valor, 'Alerta']);
+    }
+  });
+
+  mostrarResultados(facturas.length, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, filasPrevia);
+  generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes);
+  generarCarpetasPdf(entradas, destinoPorFactura);
+
+  document.getElementById('estado').textContent = 'Listo.';
+  document.getElementById('botonProcesar').disabled = false;
+}
+
+function mostrarResultados(total, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, filasPrevia){
   document.getElementById('resultados').style.display = 'block';
-  document.getElementById('cifraTotal').textContent = facturas.length;
+  document.getElementById('cifraTotal').textContent = total;
   document.getElementById('cifraGad').textContent = contadorGad;
   document.getElementById('cifraMercados').textContent = contadorMercados;
   document.getElementById('cifraFalla').textContent = alerta.length;
 
-  const contenedorAdvertencias = document.getElementById('bloqueAdvertenciasContenedor');
-  contenedorAdvertencias.innerHTML = '';
-  (advertencias || []).forEach(function(msg){
-    const div = document.createElement('div');
-    div.className = 'bloque-info';
-    div.textContent = msg;
-    contenedorAdvertencias.appendChild(div);
-  });
+  const contA = document.getElementById('bloqueAdvertenciasContenedor');
+  contA.innerHTML = '';
+  (advertencias || []).forEach(msg => { const d = document.createElement('div'); d.className='bloque-info'; d.textContent = msg; contA.appendChild(d); });
 
   const bloqueFechas = document.getElementById('bloqueFechas');
   bloqueFechas.innerHTML = '';
+  const div = document.createElement('div');
   if(hayFechasMixtas){
-    const div = document.createElement('div');
     div.className = 'bloque-alerta';
     const detalle = Object.keys(conteoFechas).map(k => k + ' (' + conteoFechas[k] + ')').join(', ');
-    div.textContent = 'Este lote trae más de una fecha de emisión: ' + detalle + '. Se usó la fecha con más facturas, ' + etiquetaMes + ', como encabezado. Revisa en el archivo la columna de fecha real de cada factura para confirmar las que quedaron fuera de esa fecha.';
-    bloqueFechas.appendChild(div);
+    div.textContent = 'Este lote trae más de una fecha de emisión: ' + detalle + '. Se usó ' + etiquetaMes + ' como encabezado.';
   } else {
-    const div = document.createElement('div');
     div.className = 'bloque-info';
     div.textContent = 'Todas las facturas de este lote traen la misma fecha de emisión, ' + etiquetaMes + '.';
-    bloqueFechas.appendChild(div);
+  }
+  bloqueFechas.appendChild(div);
+
+  const contAlerta = document.getElementById('bloqueAlertaContenedor');
+  contAlerta.innerHTML = '';
+  if(alerta.length > 0){
+    const d = document.createElement('div');
+    d.className = 'bloque-alerta';
+    d.textContent = alerta.length + ' factura(s) no encontraron cuenta contrato coincidente en ningún listado.';
+    contAlerta.appendChild(d);
   }
 
-  const contenedorAlerta = document.getElementById('bloqueAlertaContenedor');
-  contenedorAlerta.innerHTML = '';
-  if(alerta.length > 0){
-    const div = document.createElement('div');
-    div.className = 'bloque-alerta';
-    div.textContent = alerta.length + ' factura(s) no encontraron cuenta contrato coincidente en ninguno de los dos listados. Revísalas en la pestaña Alerta del archivo descargado.';
-    contenedorAlerta.appendChild(div);
+  const contPrevia = document.getElementById('previaContenedor');
+  contPrevia.innerHTML = '';
+  if(filasPrevia.length > 0){
+    const titulo = document.createElement('div');
+    titulo.className = 'etiqueta-campo';
+    titulo.style.marginTop = '6px';
+    titulo.textContent = 'Vista previa de resultados';
+    contPrevia.appendChild(titulo);
+    const envoltorio = document.createElement('div');
+    envoltorio.className = 'previa-contenedor';
+    const tabla = document.createElement('table');
+    tabla.className = 'previa';
+    tabla.innerHTML = '<thead><tr><th>Factura</th><th>Nombre / Ubicación</th><th>Código</th><th>Valor</th><th>Listado</th></tr></thead>';
+    const cuerpo = document.createElement('tbody');
+    filasPrevia.forEach(fila => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>'+fila[0]+'</td><td>'+(fila[1]||'')+'</td><td>'+fila[2]+'</td><td>$'+Number(fila[3]).toFixed(2)+'</td><td>'+fila[4]+'</td>';
+      cuerpo.appendChild(tr);
+    });
+    tabla.appendChild(cuerpo);
+    envoltorio.appendChild(tabla);
+    contPrevia.appendChild(envoltorio);
   }
 }
 
@@ -442,10 +506,7 @@ function anchoColumnas(filas, encabezados){
     let maxLen = String(enc).length;
     filas.forEach(function(fila){
       const val = fila[idx];
-      if(val !== undefined && val !== null){
-        const len = String(val).length;
-        if(len > maxLen) maxLen = len;
-      }
+      if(val !== undefined && val !== null){ const len = String(val).length; if(len > maxLen) maxLen = len; }
     });
     return { wch: Math.min(maxLen + 2, 60) };
   });
@@ -479,12 +540,12 @@ function generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes){
     ['Este archivo es nuevo y limpio. No modifica tus listados originales de GAD ni de Mercados.'],
     ['Las pestañas GAD Match y Mercados Match traen la lista completa de todos los clientes de tu listado real, en el mismo orden, no solo los que tuvieron factura este mes.'],
     ['La columna No es el mismo numero de fila que ya usas en tu listado real, sirve para ubicar la fila a simple vista.'],
-    ['La columna Este mes dice SI en las filas que sí trajeron factura nueva, y queda en blanco en las que no. Puedes usar el filtro que ya viene activado en el encabezado para ver solo las filas con SI.'],
+    ['La columna Este mes dice SI en las filas que sí trajeron factura nueva. Puedes usar el filtro ya activado en el encabezado para ver solo esas.'],
     [''],
     ['Como pasar los valores a tu archivo real'],
-    ['Como el orden de filas es identico al de tu listado real, selecciona de un jalón las columnas FACTURA y la columna de fecha en esta pestaña, cópialas, y en tu listado real pégalas directo en las dos columnas nuevas que agregues al final. La fila 2 de aquí corresponde a la fila 2 de tu archivo real, y así sucesivamente.'],
+    ['Como el orden de filas es identico al de tu listado real, selecciona de un jalón las columnas FACTURA y la columna de fecha en esta pestaña, cópialas, y en tu listado real pégalas directo en las dos columnas nuevas que agregues al final.'],
     [''],
-    ['La pestaña Alerta trae las facturas que no encontraron codigo coincidente en ningun listado, revisalas a mano, puede tratarse de un predio nuevo que aun no esta registrado.']
+    ['Los datos de este archivo se leyeron directo de los PDF de factura, no de un XML. Si algún dato no se pudo leer bien, esa factura queda en la pestaña Alerta para revisión manual.']
   ];
   const hojaGuia = XLSX.utils.aoa_to_sheet(guia);
   hojaGuia['!cols'] = [{wch:110}];
@@ -493,7 +554,7 @@ function generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes){
   const ahora = new Date();
   const pad = n => String(n).padStart(2,'0');
   const marcaTiempo = ahora.getFullYear() + '_' + pad(ahora.getMonth()+1) + '_' + pad(ahora.getDate()) + '_' + pad(ahora.getHours()) + pad(ahora.getMinutes());
-  const nombreArchivo = 'EMAC_conciliacion_' + marcaTiempo + '.xlsx';
+  const nombreArchivo = 'MACO_conciliacion_' + marcaTiempo + '.xlsx';
 
   const contenedorBotones = document.getElementById('botonesDescarga');
   contenedorBotones.innerHTML = '';
@@ -502,6 +563,63 @@ function generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes){
   btn.textContent = 'Descargar ' + nombreArchivo;
   btn.onclick = function(){ XLSX.writeFile(libroSalida, nombreArchivo); };
   contenedorBotones.appendChild(btn);
+}
+
+async function generarCarpetasPdf(entradas, destinoPorFactura){
+  if(entradas.length === 0) return;
+
+  const zipGad = new JSZip();
+  const zipMercados = new JSZip();
+  const zipSinCoincidencia = new JSZip();
+  let cGad=0, cMerc=0, cSin=0;
+
+  entradas.forEach(function(e){
+    const m = e.nombre.match(/(\d{3}-\d{3}-\d{9})/);
+    const numero = m ? m[1] : null;
+    const destino = numero ? destinoPorFactura[numero] : null;
+    if(destino === 'GAD'){ zipGad.file(e.nombre, e.bytes); cGad++; }
+    else if(destino === 'MERCADOS'){ zipMercados.file(e.nombre, e.bytes); cMerc++; }
+    else { zipSinCoincidencia.file(e.nombre, e.bytes); cSin++; }
+  });
+
+  const ahora = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const marcaTiempo = ahora.getFullYear() + '_' + pad(ahora.getMonth()+1) + '_' + pad(ahora.getDate()) + '_' + pad(ahora.getHours()) + pad(ahora.getMinutes());
+
+  const contenedor = document.getElementById('botonesDescargaPdf');
+  contenedor.innerHTML = '';
+
+  const info = document.createElement('div');
+  info.className = 'bloque-info';
+  info.textContent = 'PDF listos: ' + cGad + ' para GAD, ' + cMerc + ' para Mercados' + (cSin > 0 ? ', y ' + cSin + ' sin coincidencia.' : '.');
+  contenedor.appendChild(info);
+
+  if(cGad > 0){
+    const b = document.createElement('button'); b.className='secundario';
+    b.textContent = 'Descargar carpeta PDF GAD (' + cGad + ')';
+    b.onclick = () => zipGad.generateAsync({type:'blob'}).then(blob => descargarBlob(blob, 'PDF_GAD_' + marcaTiempo + '.zip'));
+    contenedor.appendChild(b);
+  }
+  if(cMerc > 0){
+    const b = document.createElement('button'); b.className='secundario';
+    b.textContent = 'Descargar carpeta PDF Mercados (' + cMerc + ')';
+    b.onclick = () => zipMercados.generateAsync({type:'blob'}).then(blob => descargarBlob(blob, 'PDF_Mercados_' + marcaTiempo + '.zip'));
+    contenedor.appendChild(b);
+  }
+  if(cSin > 0){
+    const b = document.createElement('button'); b.className='secundario';
+    b.textContent = 'Descargar carpeta PDF sin coincidencia (' + cSin + ')';
+    b.onclick = () => zipSinCoincidencia.generateAsync({type:'blob'}).then(blob => descargarBlob(blob, 'PDF_sin_coincidencia_' + marcaTiempo + '.zip'));
+    contenedor.appendChild(b);
+  }
+}
+
+function descargarBlob(blob, nombre){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 </script>
 
