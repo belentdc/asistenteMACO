@@ -258,7 +258,7 @@ async function leerFacturaDesdePdf(bytes, nombreArchivo){
 
     const mFactura = texto.match(/No\.?\s*(\d{3}-\d{3}-\d{9})/);
     const mReferencia = texto.match(/Referencia:?\s*(\d{6,15})/);
-    const mValor = texto.match(/VALOR TOTAL\s*([\d]+\.[\d]{2})/);
+    const mValor = texto.match(/VALOR TOTAL\s*([\d]+\.[\d]{1,2})/);
     const mFecha = texto.match(/Fecha Emisi[oó]n:?\s*(\d{2}\/\d{2}\/\d{4})/);
 
     if(!mFactura || !mReferencia || !mValor) return null;
@@ -384,8 +384,12 @@ async function procesar(){
 
   document.getElementById('estado').textContent = 'Extrayendo datos de cada PDF…';
   const facturasCrudas = await Promise.all(entradas.map(e => leerFacturaDesdePdf(e.bytes, e.nombre)));
-  const facturasFallidas = entradas.length - facturasCrudas.filter(Boolean).length;
-  const facturas = facturasCrudas.filter(Boolean);
+  const facturas = [];
+  const noLeidas = [];
+  facturasCrudas.forEach(function(f, idx){
+    if(f) facturas.push(f);
+    else noLeidas.push(entradas[idx].nombre);
+  });
 
   const conteoFechas = {};
   facturas.forEach(f => { if(f.fechaEmision) conteoFechas[f.fechaEmision] = (conteoFechas[f.fechaEmision]||0)+1; });
@@ -408,7 +412,9 @@ async function procesar(){
   }
   if(listaArchivoUno && !listaArchivoUno.tipo) advertencias.push('No pude reconocer con certeza si el primer listado es GAD o Mercados.');
   if(listaArchivoDos && !listaArchivoDos.tipo) advertencias.push('No pude reconocer con certeza si el segundo listado es GAD o Mercados.');
-  if(facturasFallidas > 0) advertencias.push(facturasFallidas + ' archivo(s) no se pudieron leer bien como factura EMAC, revisa que sean el PDF original sin editar.');
+  noLeidas.forEach(function(nombre){
+    alerta.push(['(no se pudo leer)', '(no se pudo leer)', '', '', 'El archivo ' + nombre + ' no se pudo leer como factura EMAC, revisa que sea el PDF original sin editar.']);
+  });
 
   document.getElementById('estado').textContent = 'Cruzando datos…';
 
@@ -435,7 +441,7 @@ async function procesar(){
     }
   });
 
-  mostrarResultados(facturas.length, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, filasPrevia);
+  mostrarResultados(entradas.length, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, filasPrevia);
   generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes);
   generarCarpetasPdf(entradas, destinoPorFactura);
 
