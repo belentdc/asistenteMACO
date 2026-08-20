@@ -89,6 +89,8 @@
     border-left:4px solid var(--alerta); background:var(--alerta-fondo);
     padding:12px 15px; font-size:0.86rem; color:#5c2a10; margin-bottom:16px; border-radius:0 6px 6px 0;
   }
+  .bloque-alerta.clicable{ cursor:pointer; }
+  .bloque-alerta.clicable:hover{ filter:brightness(0.97); }
   .bloque-info{
     border-left:4px solid var(--azul); background:var(--azul-claro);
     padding:12px 15px; font-size:0.86rem; color:var(--azul-oscuro); margin-bottom:16px; border-radius:0 6px 6px 0;
@@ -174,8 +176,6 @@
     </div>
 
     <div id="bloqueAdvertenciasContenedor"></div>
-    <div id="bloqueFechas"></div>
-    <div id="bloqueAlertaContenedor"></div>
 
     <div id="previaContenedor"></div>
 
@@ -397,7 +397,7 @@ async function procesar(){
     if(!p.factura){ noLeidas.push(p.entrada.nombre); return; }
     const clave = p.factura.numeroFactura;
     if(vistos[clave]){
-      duplicados.push({ numero: clave, nombre: p.entrada.nombre });
+      duplicados.push({ numero: clave, nombre: p.entrada.nombre, referencia: p.factura.referencia, valor: p.factura.valor });
       return;
     }
     vistos[clave] = true;
@@ -440,27 +440,26 @@ async function procesar(){
   const alerta = [];
   let contadorGad = 0, contadorMercados = 0;
   const destinoPorFactura = {};
-  const filasPrevia = [];
+  const encontrados = [];
 
   facturas.forEach(function(f){
     if(listaGad && listaGad.mapa[f.referencia]){
       const entrada = listaGad.mapa[f.referencia];
       entrada.factura = f.numeroFactura; entrada.valor = f.valor; entrada.fechaReal = f.fechaEmision; entrada.esteMes = 'SI';
       contadorGad++; destinoPorFactura[f.numeroFactura] = 'GAD';
-      filasPrevia.push([f.numeroFactura, entrada.nombre, f.referencia, f.valor, 'GAD']);
+      encontrados.push([f.numeroFactura, entrada.nombre, f.referencia, f.valor, 'GAD']);
     } else if(listaMercados && listaMercados.mapa[f.referencia]){
       const entrada = listaMercados.mapa[f.referencia];
       entrada.factura = f.numeroFactura; entrada.valor = f.valor; entrada.fechaReal = f.fechaEmision; entrada.esteMes = 'SI';
       contadorMercados++; destinoPorFactura[f.numeroFactura] = 'MERCADOS';
-      filasPrevia.push([f.numeroFactura, entrada.nombre, f.referencia, f.valor, 'Mercados']);
+      encontrados.push([f.numeroFactura, entrada.nombre, f.referencia, f.valor, 'Mercados']);
     } else {
       alerta.push([f.numeroFactura, f.referencia, f.valor, f.fechaEmision, 'Sin coincidencia en GAD ni en Mercados']);
       destinoPorFactura[f.numeroFactura] = 'ALERTA';
-      filasPrevia.push([f.numeroFactura, '(sin coincidencia)', f.referencia, f.valor, 'Alerta']);
     }
   });
 
-  mostrarResultados(entradas.length, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, filasPrevia);
+  mostrarResultados(entradas.length, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, encontrados, duplicados, noLeidas);
   generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes);
   generarCarpetasPdf(entradasUnicas, destinoPorFactura);
 
@@ -468,62 +467,112 @@ async function procesar(){
   document.getElementById('botonProcesar').disabled = false;
 }
 
-function mostrarResultados(total, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, filasPrevia){
+let datosVistaPrevia = { encontrados: [], sinCoincidencias: [], duplicados: [] };
+let pestanaActivaPrevia = 'encontrados';
+
+function activarPestanaPrevia(nombre){
+  pestanaActivaPrevia = nombre;
+  renderizarVistaPrevia();
+  const contenedor = document.getElementById('previaContenedor');
+  if(contenedor && contenedor.scrollIntoView) contenedor.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+function mostrarResultados(total, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, encontrados, duplicados, noLeidas){
   document.getElementById('resultados').style.display = 'block';
   document.getElementById('cifraTotal').textContent = total;
   document.getElementById('cifraGad').textContent = contadorGad;
   document.getElementById('cifraMercados').textContent = contadorMercados;
   document.getElementById('cifraFalla').textContent = alerta.length;
 
+  const sinCoincidencias = alerta.map(a => [a[0], a[1], a[2], a[3], a[4]]);
+  const filasDuplicados = duplicados.map(d => [d.nombre, d.numero, d.referencia || '', d.valor !== undefined ? d.valor : '']);
+
+  datosVistaPrevia = { encontrados, sinCoincidencias, duplicados: filasDuplicados };
+  pestanaActivaPrevia = duplicados.length > 0 ? 'duplicados' : (sinCoincidencias.length > 0 ? 'sinCoincidencias' : 'encontrados');
+
   const contA = document.getElementById('bloqueAdvertenciasContenedor');
   contA.innerHTML = '';
-  (advertencias || []).forEach(msg => { const d = document.createElement('div'); d.className='bloque-info'; d.textContent = msg; contA.appendChild(d); });
 
-  const bloqueFechas = document.getElementById('bloqueFechas');
-  bloqueFechas.innerHTML = '';
-  const div = document.createElement('div');
-  if(hayFechasMixtas){
-    div.className = 'bloque-alerta';
-    const detalle = Object.keys(conteoFechas).map(k => k + ' (' + conteoFechas[k] + ')').join(', ');
-    div.textContent = 'Este lote trae más de una fecha de emisión: ' + detalle + '. Se usó ' + etiquetaMes + ' como encabezado.';
-  } else {
-    div.className = 'bloque-info';
-    div.textContent = 'Todas las facturas de este lote traen la misma fecha de emisión, ' + etiquetaMes + '.';
+  if(duplicados.length > 0){
+    const nombresDup = duplicados.map(d => d.nombre + ' (factura ' + d.numero + ')').join(', ');
+    const d = document.createElement('div');
+    d.className = 'bloque-alerta clicable';
+    d.innerHTML = '<strong>DUPLICADOS:</strong> ' + duplicados.length + ' archivo(s) traían una factura que ya estaba en este lote, se usó solo una copia de cada una. Ignorados: ' + nombresDup + '. Clic para verlos.';
+    d.onclick = function(){ activarPestanaPrevia('duplicados'); };
+    contA.appendChild(d);
   }
-  bloqueFechas.appendChild(div);
 
-  const contAlerta = document.getElementById('bloqueAlertaContenedor');
-  contAlerta.innerHTML = '';
   if(alerta.length > 0){
     const d = document.createElement('div');
-    d.className = 'bloque-alerta';
-    d.textContent = alerta.length + ' factura(s) no encontraron cuenta contrato coincidente en ningún listado.';
-    contAlerta.appendChild(d);
+    d.className = 'bloque-alerta clicable';
+    d.innerHTML = '<strong>SIN COINCIDENCIAS:</strong> ' + alerta.length + ' factura(s) no encontraron cuenta contrato coincidente en ningún listado. Clic para verlas.';
+    d.onclick = function(){ activarPestanaPrevia('sinCoincidencias'); };
+    contA.appendChild(d);
   }
 
+  const dFecha = document.createElement('div');
+  dFecha.className = hayFechasMixtas ? 'bloque-alerta' : 'bloque-info';
+  if(hayFechasMixtas){
+    const detalle = Object.keys(conteoFechas).map(k => k + ' (' + conteoFechas[k] + ')').join(', ');
+    dFecha.innerHTML = '<strong>FECHA:</strong> este lote trae más de una fecha de emisión: ' + detalle + '. Se usó ' + etiquetaMes + ' como encabezado.';
+  } else {
+    dFecha.innerHTML = '<strong>FECHA:</strong> todas las facturas de este lote traen la misma fecha de emisión, ' + etiquetaMes + '.';
+  }
+  contA.appendChild(dFecha);
+
+  (advertencias || []).forEach(msg => { const d = document.createElement('div'); d.className='bloque-info'; d.textContent = msg; contA.appendChild(d); });
+
+  renderizarVistaPrevia();
+}
+
+function renderizarVistaPrevia(){
   const contPrevia = document.getElementById('previaContenedor');
   contPrevia.innerHTML = '';
-  if(filasPrevia.length > 0){
-    const titulo = document.createElement('div');
-    titulo.className = 'etiqueta-campo';
-    titulo.style.marginTop = '6px';
-    titulo.textContent = 'Vista previa de resultados';
-    contPrevia.appendChild(titulo);
-    const envoltorio = document.createElement('div');
-    envoltorio.className = 'previa-contenedor';
-    const tabla = document.createElement('table');
-    tabla.className = 'previa';
-    tabla.innerHTML = '<thead><tr><th>Factura</th><th>Nombre / Ubicación</th><th>Código</th><th>Valor</th><th>Listado</th></tr></thead>';
-    const cuerpo = document.createElement('tbody');
-    filasPrevia.forEach(fila => {
+
+  const pestanas = [
+    { id:'encontrados', etiqueta:'Encontrados', datos: datosVistaPrevia.encontrados, columnas:['Factura','Nombre / Ubicación','Código','Valor','Listado'] },
+    { id:'sinCoincidencias', etiqueta:'Sin coincidencias', datos: datosVistaPrevia.sinCoincidencias, columnas:['Factura','Código buscado','Valor','Fecha','Motivo'] },
+    { id:'duplicados', etiqueta:'Duplicados', datos: datosVistaPrevia.duplicados, columnas:['Archivo','Factura','Código','Valor'] }
+  ];
+
+  const filaPestanas = document.createElement('div');
+  filaPestanas.className = 'selector-modo';
+  pestanas.forEach(function(p){
+    const btn = document.createElement('div');
+    btn.className = 'opcion-modo' + (pestanaActivaPrevia === p.id ? ' activa' : '');
+    btn.textContent = p.etiqueta + ' (' + p.datos.length + ')';
+    btn.onclick = function(){ activarPestanaPrevia(p.id); };
+    filaPestanas.appendChild(btn);
+  });
+  contPrevia.appendChild(filaPestanas);
+
+  const activa = pestanas.find(p => p.id === pestanaActivaPrevia) || pestanas[0];
+  const envoltorio = document.createElement('div');
+  envoltorio.className = 'previa-contenedor';
+  const tabla = document.createElement('table');
+  tabla.className = 'previa';
+  tabla.innerHTML = '<thead><tr>' + activa.columnas.map(c => '<th>'+c+'</th>').join('') + '</tr></thead>';
+  const cuerpo = document.createElement('tbody');
+  if(activa.datos.length === 0){
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="'+activa.columnas.length+'" style="text-align:center; color:var(--tinta-suave);">Nada en esta pestaña</td>';
+    cuerpo.appendChild(tr);
+  } else {
+    activa.datos.forEach(fila => {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td>'+fila[0]+'</td><td>'+(fila[1]||'')+'</td><td>'+fila[2]+'</td><td>$'+Number(fila[3]).toFixed(2)+'</td><td>'+fila[4]+'</td>';
+      tr.innerHTML = fila.map((v,i) => {
+        if(activa.id !== 'duplicados' && (i===3 || (activa.id==='encontrados' && i===3))){
+          const num = Number(v);
+          return '<td>' + (isNaN(num) ? (v||'') : '$'+num.toFixed(2)) + '</td>';
+        }
+        return '<td>' + (v===undefined || v===null ? '' : v) + '</td>';
+      }).join('');
       cuerpo.appendChild(tr);
     });
-    tabla.appendChild(cuerpo);
-    envoltorio.appendChild(tabla);
-    contPrevia.appendChild(envoltorio);
   }
+  tabla.appendChild(cuerpo);
+  envoltorio.appendChild(tabla);
+  contPrevia.appendChild(envoltorio);
 }
 
 function anchoColumnas(filas, encabezados){
