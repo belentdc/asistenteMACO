@@ -384,13 +384,27 @@ async function procesar(){
   }
 
   document.getElementById('estado').textContent = 'Extrayendo datos de cada PDF…';
-  const facturasCrudas = await Promise.all(entradas.map(e => leerFacturaDesdePdf(e.bytes.slice(), e.nombre)));
-  const facturas = [];
+  const paresCrudos = await Promise.all(entradas.map(async function(e){
+    const factura = await leerFacturaDesdePdf(e.bytes.slice(), e.nombre);
+    return { entrada: e, factura };
+  }));
+
+  const vistos = {};
+  const pares = [];
+  const duplicados = [];
   const noLeidas = [];
-  facturasCrudas.forEach(function(f, idx){
-    if(f) facturas.push(f);
-    else noLeidas.push(entradas[idx].nombre);
+  paresCrudos.forEach(function(p){
+    if(!p.factura){ noLeidas.push(p.entrada.nombre); return; }
+    const clave = p.factura.numeroFactura;
+    if(vistos[clave]){
+      duplicados.push({ numero: clave, nombre: p.entrada.nombre });
+      return;
+    }
+    vistos[clave] = true;
+    pares.push(p);
   });
+  const facturas = pares.map(p => p.factura);
+  const entradasUnicas = pares.map(p => p.entrada);
 
   const conteoFechas = {};
   facturas.forEach(f => { if(f.fechaEmision) conteoFechas[f.fechaEmision] = (conteoFechas[f.fechaEmision]||0)+1; });
@@ -416,6 +430,10 @@ async function procesar(){
   noLeidas.forEach(function(nombre){
     alerta.push(['(no se pudo leer)', '(no se pudo leer)', '', '', 'El archivo ' + nombre + ' no se pudo leer como factura EMAC, revisa que sea el PDF original sin editar.']);
   });
+  if(duplicados.length > 0){
+    const nombresDup = duplicados.map(d => d.nombre + ' (factura ' + d.numero + ')').join(', ');
+    advertencias.push(duplicados.length + ' archivo(s) traían una factura que ya estaba en este lote, se usó solo una copia de cada una. Ignorados: ' + nombresDup + '.');
+  }
 
   document.getElementById('estado').textContent = 'Cruzando datos…';
 
@@ -444,7 +462,7 @@ async function procesar(){
 
   mostrarResultados(entradas.length, contadorGad, contadorMercados, alerta, etiquetaMes, hayFechasMixtas, conteoFechas, advertencias, filasPrevia);
   generarLibroDescarga(listaGad, listaMercados, alerta, etiquetaMes);
-  generarCarpetasPdf(entradas, destinoPorFactura);
+  generarCarpetasPdf(entradasUnicas, destinoPorFactura);
 
   document.getElementById('estado').textContent = 'Listo.';
   document.getElementById('botonProcesar').disabled = false;
