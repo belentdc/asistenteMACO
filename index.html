@@ -9,6 +9,7 @@
 <script>
   window.addEventListener('load', function(){
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfjsLib.PDFWorkerUtil.isWorkerDisabled = true;
   });
 </script>
 <style>
@@ -383,7 +384,7 @@ async function procesar(){
   }
 
   document.getElementById('estado').textContent = 'Extrayendo datos de cada PDF…';
-  const facturasCrudas = await Promise.all(entradas.map(e => leerFacturaDesdePdf(e.bytes, e.nombre)));
+  const facturasCrudas = await Promise.all(entradas.map(e => leerFacturaDesdePdf(e.bytes.slice(), e.nombre)));
   const facturas = [];
   const noLeidas = [];
   facturasCrudas.forEach(function(f, idx){
@@ -583,9 +584,9 @@ async function generarCarpetasPdf(entradas, destinoPorFactura){
     const m = e.nombre.match(/(\d{3}-\d{3}-\d{9})/);
     const numero = m ? m[1] : null;
     const destino = numero ? destinoPorFactura[numero] : null;
-    if(destino === 'GAD'){ zipGad.file(e.nombre, e.bytes); cGad++; }
-    else if(destino === 'MERCADOS'){ zipMercados.file(e.nombre, e.bytes); cMerc++; }
-    else { zipSinCoincidencia.file(e.nombre, e.bytes); cSin++; }
+    if(destino === 'GAD'){ zipGad.file(e.nombre, e.bytes.slice()); cGad++; }
+    else if(destino === 'MERCADOS'){ zipMercados.file(e.nombre, e.bytes.slice()); cMerc++; }
+    else { zipSinCoincidencia.file(e.nombre, e.bytes.slice()); cSin++; }
   });
 
   const ahora = new Date();
