@@ -304,6 +304,10 @@ function extraerAdjuntosPdfDeEml(texto, nombreCorreo){
 
 async function extraerPdfsDeZip(archivoZipFile){
   const buffer = await archivoZipFile.arrayBuffer();
+  return extraerPdfsDeZipBuffer(buffer);
+}
+
+async function extraerPdfsDeZipBuffer(buffer){
   const zip = await JSZip.loadAsync(buffer);
   const resultados = [];
   const nombres = Object.keys(zip.files);
@@ -317,6 +321,10 @@ async function extraerPdfsDeZip(archivoZipFile){
       const texto = await entrada.async('string');
       const adjuntos = extraerAdjuntosPdfDeEml(texto, nombre.split('/').pop());
       adjuntos.forEach(a => resultados.push(a));
+    } else if(/\.zip$/i.test(nombre)){
+      const bufferInterno = await entrada.async('arraybuffer');
+      const anidados = await extraerPdfsDeZipBuffer(bufferInterno);
+      anidados.forEach(a => resultados.push(a));
     }
   }
   return resultados;
